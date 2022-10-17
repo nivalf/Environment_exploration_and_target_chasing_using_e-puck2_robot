@@ -14,7 +14,7 @@
 #include "spi_comm.h"
 
 
-void toggle_bot_spin(int toggle);
+void spin_bot(int direction);
 void blink_green_leds(void);
 
 int main(void)
@@ -29,18 +29,27 @@ int main(void)
     clear_leds();
     spi_comm_start();
 
+    /* direction: 1-clockwise, -1-counter-clockwise */
+    int direction = 1;
+    /* Counter for direction change*/
     int counter = 0;
-    int toggle = -1;
+
+    /* Start spinning the bot */
+    spin_bot(direction);
 
     /* Infinite loop. */
     while (1) {
     	const int selector = get_selector();
 
-    	/* Change the direction of spin whenever counter resets*/
-    	if(counter == 0) {
-    		toggle_bot_spin(toggle);
-    		toggle = toggle * (-1);
+    	/* Change the direction of spin whenever counter resets
+    	 * If selector is 0, make no change in spin */
+    	if(counter == 0 && selector != 0) {
+    		spin_bot(direction);
+    		direction = direction * (-1);
     	}
+
+    	/* Blink the green LEDs */
+    	blink_green_leds();
 
     	/* Increment the counter & reset when count==selector */
     	counter = (counter + 1) % selector;
@@ -58,14 +67,14 @@ void __stack_chk_fail(void)
     chSysHalt("Stack smashing detected");
 }
 
-/* Function to toggle the spin of the robot.
- * Takes an argument 'toggle' to change direction of spin
+/* Function to direction the spin of the robot.
+ * Takes an argument 'direction' to change direction of spin
 */
-void toggle_bot_spin(int toggle) {
+void spin_bot(int direction) {
 	const int speed = 300;
 
-	left_motor_set_speed(toggle * speed);
-	right_motor_set_speed(toggle * -1 * speed);
+	left_motor_set_speed(direction * speed);
+	right_motor_set_speed(direction * -1 * speed);
 }
 
 /*Function to blink the green body LEDs*/
