@@ -16,6 +16,8 @@
 #include "stdio.h"
 #include "serial_comm.h"
 
+#include "motors.h"
+
 #include "behaviors.h"
 #include "sensors/imu.h"
 #include "epuck1x/utility/utility.h"
@@ -48,12 +50,13 @@ float current_turn_angle_rad = 0;
 
 int main(void)
 {
-	// Initiate inter-process communication bus
-	messagebus_init(&bus, &bus_lock, &bus_condvar);
-
     halInit();
     chSysInit();
     mpu_init();
+    motors_init();
+
+	// Initiate inter-process communication bus
+	messagebus_init(&bus, &bus_lock, &bus_condvar);
 
     // Start & Calibrate the proximity sensor
     proximity_start();
@@ -67,40 +70,42 @@ int main(void)
     serial_start();
 
     // Enable obstacle avoidance. Threshold: proximity < 300
-	enable_obstacle_avoidance();
+//	enable_obstacle_avoidance();
 
 
     /* Infinite loop. */
     while (1) {
-    	//waits 1 second
+    	// waits 1 second
         chThdSleepMilliseconds(1000);
 
         // **************** Read Proximity values ****************** //
 
-        // get values from the 8 IR sensors. (0-7)
-        int prox_readings[8];
-        int calibrated_prox_readings[8];
-        int ambient_light[8];
-
-        // convert this to a separate fn. Use array pointer to pass on the value.
-        // Test in playground before implementing.
-        for(int sensor = 0; sensor < 8; sensor ++ ) {
-        	prox_readings[sensor] = get_prox(sensor);
-        	calibrated_prox_readings[sensor] = get_calibrated_prox(sensor);
-        	ambient_light[sensor] = get_ambient_light(sensor);
-        }
-
-        // **************** Stream Proximity values to the terminal ****************** //
-
-        // Print the IR values to terminal
-        for(int sensor = 0; sensor < 8; sensor ++ ) {
-        	char str[100]; // resulting string of sprintf will be stored here
-        	char split = (sensor == 7) ? '\n' : '|';
-        	int str_length = sprintf(str, " %d, %d, %d %c", prox_readings[sensor], calibrated_prox_readings[sensor], ambient_light[sensor], split);
-        	e_send_uart1_char(str, str_length);
-        }
+//        // get values from the 8 IR sensors. (0-7)
+//        int prox_readings[8];
+//        int calibrated_prox_readings[8];
+//        int ambient_light[8];
+//
+//        // convert this to a separate fn. Use array pointer to pass on the value.
+//        // Test in playground before implementing.
+//        for(int sensor = 0; sensor < 8; sensor ++ ) {
+//        	prox_readings[sensor] = get_prox(sensor);
+//        	calibrated_prox_readings[sensor] = get_calibrated_prox(sensor);
+//        	ambient_light[sensor] = get_ambient_light(sensor);
+//        }
+//
+//        // **************** Stream Proximity values to the terminal ****************** //
+//
+//        // Print the IR values to terminal
+//        for(int sensor = 0; sensor < 8; sensor ++ ) {
+//        	char str[100]; // resulting string of sprintf will be stored here
+//        	char split = (sensor == 7) ? '\n' : '|';
+//        	int str_length = sprintf(str, " %d, %d, %d %c", prox_readings[sensor], calibrated_prox_readings[sensor], ambient_light[sensor], split);
+//        	e_send_uart1_char(str, str_length);
+//        }
 
         // *********************** ***************************//
+
+
         switch(bot_state) {
         	// moving forward
 			case 0:
@@ -132,7 +137,7 @@ void __stack_chk_fail(void)
 
 void turn(void) {
 //	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
-	current_turn_angle_rad += get_gyro_rate(2)*getDiffTimeMsAndReset()*0.001;
+	current_turn_angle_rad += -1 * get_gyro_rate(2)*getDiffTimeMsAndReset()*0.001;
 
 	if(current_turn_angle_rad >= target_turn_angle) {
 		// reset
@@ -147,7 +152,7 @@ void turn(void) {
 
 // turn the bot clockwise
 void turn_right(void) {
-	const int speed = 600;
+	const int speed = 200;
 	right_motor_set_speed(-1 * speed);
 	left_motor_set_speed(speed);
 }
