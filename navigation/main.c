@@ -26,13 +26,13 @@ MUTEX_DECL(bus_lock);
 CONDVAR_DECL(bus_condvar);
 
 // Function Declarations
-float get_turn_angle();
+float get_turn_angle(void);
 int cmp(const void *a, const void *b);
-int get_prox_sensor_number();
-void move_forward();
-int has_obstacle_ahead();
-void turn_right();
-void turn();
+int get_prox_sensor_number(void);
+void move_forward(void);
+int has_obstacle_ahead(void);
+void turn_right(void);
+void turn(void);
 
 struct prox
 {
@@ -130,8 +130,8 @@ void __stack_chk_fail(void)
 
 /*************** Helper Functions *************************/
 
-void turn() {
-	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
+void turn(void) {
+//	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
 	current_turn_angle_rad += get_gyro_rate(2)*getDiffTimeMsAndReset()*0.001;
 
 	if(current_turn_angle_rad >= target_turn_angle) {
@@ -146,14 +146,14 @@ void turn() {
 }
 
 // turn the bot clockwise
-void turn_right() {
+void turn_right(void) {
 	const int speed = 600;
 	right_motor_set_speed(-1 * speed);
 	left_motor_set_speed(speed);
 }
 
 // Move the bot forward;
-void move_forward() {
+void move_forward(void) {
 	const int speed = 1000;
 
 	right_motor_set_speed(speed);
@@ -161,20 +161,20 @@ void move_forward() {
 }
 
 // 1 if obstacle ahead else 0
-int has_obstacle_ahead() {
-	const prox_thr = 350;
+int has_obstacle_ahead(void) {
+	const int prox_thr = 350;
 	return get_calibrated_prox(0) < prox_thr || get_calibrated_prox(7) < prox_thr ? 1 : 0;
 }
 
 /* Get the angle in radians to turn for next movement*/
-float get_turn_angle() {
+float get_turn_angle(void) {
 	int chosen_prox_sensor = get_prox_sensor_number();
 	float turn_angle = ((M_PI/4) * chosen_prox_sensor) - M_PI/8;
 	return turn_angle;
 }
 
 /* Get the proximity sensor number of next direction */
-int get_prox_sensor_number() {
+int get_prox_sensor_number(void) {
 	struct prox calibrated_prox_values[8];
 	    for (int sensor = 0; sensor < 8; sensor++)
 	    {

@@ -140,7 +140,11 @@ build/obj/main.o: main.c \
  ../e-puck2_main-processor/src/sensors/proximity.h \
  ../e-puck2_main-processor/src/epuck1x/uart/e_uart_char.h \
  ../e-puck2_main-processor/src/serial_comm.h \
- ../e-puck2_main-processor/src/behaviors.h
+ ../e-puck2_main-processor/src/behaviors.h \
+ ../e-puck2_main-processor/src/sensors/imu.h \
+ ../e-puck2_main-processor/src/sensors/mpu9250.h \
+ ../e-puck2_main-processor/src/sensors/mpu9250_registers.h \
+ ../e-puck2_main-processor/src/epuck1x/utility/utility.h
 
 d:\eclipse_e-puck2\tools\gcc-arm-none-eabi-7-2017-q4-major-win32\arm-none-eabi\include\stdio.h:
 
@@ -427,3 +431,11 @@ d:\eclipse_e-puck2\tools\gcc-arm-none-eabi-7-2017-q4-major-win32\arm-none-eabi\i
 ../e-puck2_main-processor/src/serial_comm.h:
 
 ../e-puck2_main-processor/src/behaviors.h:
+
+../e-puck2_main-processor/src/sensors/imu.h:
+
+../e-puck2_main-processor/src/sensors/mpu9250.h:
+
+../e-puck2_main-processor/src/sensors/mpu9250_registers.h:
+
+../e-puck2_main-processor/src/epuck1x/utility/utility.h:
