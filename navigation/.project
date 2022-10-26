@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>MyProject2</name>
+	<name>navigation</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -28,7 +28,7 @@
 		<link>
 			<name>e-puck2_main-processor</name>
 			<type>2</type>
-			<location>/home/uos/Documents/e-puck2_1_J/e-puck2_main-processor</location>
+			<location>D:/e-puck2_1_J/e-puck2_main-processor</location>
 		</link>
 	</linkedResources>
 </projectDescription>
