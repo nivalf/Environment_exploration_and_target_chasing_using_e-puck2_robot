@@ -1,5 +1,5 @@
-/* STREAM IR SENSOR VALUES TO TERMINAL
- * This program is to read values from all 8 IR
+/* STREAM PROXIMITY SENSOR VALUES TO TERMINAL
+ * This program is to read values from all 8 PROXIMITY SENSORS
  * sensors and stream the data to the computer terminal. */
 #include <stdio.h>
 #include <stdlib.h>
