@@ -40,6 +40,9 @@ void turn(void);
 void send_feedback_data(void);
 int get_turn_direction(void);
 int target_in_range(void);
+void change_sensor_select_count(void);
+void explore_arena(void);
+void chase_target(void);
 
 struct prox
 {
@@ -94,47 +97,15 @@ int main(void)
         // Send feedback data to the serial monitor
         send_feedback_data();
 
-        switch(bot_state) {
-        	// moving forward mode
-			case 0:
-				move_forward();
-				if(obstacle_in_proximity()) {
-					set_target_turn_angle();
-					bot_state = 1;
-				}
-				break;
-
-			// Turn mode
-			case 1:
-				turn();
-				break;
+        switch(get_selector()) {
+        	case 0:
+        		// EXPLORATION MODE
+        		explore_arena();
+                break;
+			default:
+				// TARGET CHASE MODE
+				chase_target();
         }
-
-//        switch(get_selector()) {
-//        	case 0:
-//        		// EXPLORATION MODE
-//                break;
-//			default:
-//				// TARGET CHASE MODE
-//                switch(bot_state) {
-//                	// moving forward mode
-//        			case 0:
-////        				move_forward();
-//        				if(target_in_range()) {
-//        					set_target_turn_angle();
-//        					bot_state = 1;
-//        				}
-//        				break;
-//
-//        			// Turn mode
-//        			case 1:
-//        				turn();
-//        				break;
-//                }
-//                break;
-//        }
-
-
     }
 }
 
@@ -144,6 +115,48 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
 void __stack_chk_fail(void)
 {
     chSysHalt("Stack smashing detected");
+}
+
+/*************** MAIN FUNCTIONS ***************************/
+
+// TASK 1: Explore the arena while avoiding collision
+void explore_arena(void) {
+    switch(bot_state) {
+    	// moving forward mode
+		case 0:
+			move_forward();
+			if(obstacle_in_proximity()) {
+				set_target_turn_angle();
+				change_sensor_select_count();
+				bot_state = 1;
+			}
+			break;
+
+		// Turn mode
+		case 1:
+			turn();
+			break;
+    }
+}
+
+// TASK 2: Chase a target
+void chase_target(void) {
+    switch(bot_state) {
+    	// moving forward mode
+		case 0:
+//        				move_forward();
+			if(target_in_range()) {
+				sensor_select_count = 0; // to select the closest one. Change to proper location
+				set_target_turn_angle();
+				bot_state = 1;
+			}
+			break;
+
+		// Turn mode
+		case 1:
+			turn();
+			break;
+    }
 }
 
 /*************** Helper Functions *************************/
@@ -221,10 +234,14 @@ int get_target_prox_sensor_number(void) {
 	//sort
 	qsort(prox_values, 8, sizeof(prox_values[0]), cmp);
 
-	// jump sequence
-	sensor_select_count = (sensor_select_count + 3) % 8;  // >>>>> DEV: For task 2, no jump
 
 	return prox_values[sensor_select_count].sensor_no;
+}
+
+
+// jump sequence
+void change_sensor_select_count(void) {
+	sensor_select_count = (sensor_select_count + 3) % 8;
 }
 
 /* Compare function for sort
