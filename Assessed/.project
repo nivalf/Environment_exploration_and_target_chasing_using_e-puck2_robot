@@ -24,4 +24,11 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>e-puck2_main-processor</name>
+			<type>2</type>
+			<location>/home/uos/Documents/e-puck2_1_J/e-puck2_main-processor</location>
+		</link>
+	</linkedResources>
 </projectDescription>

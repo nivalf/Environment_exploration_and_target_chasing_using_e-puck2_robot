@@ -2,7 +2,7 @@
 <?artifactRepository version='1.1.0'?>
 <repository name='/home/uos/Documents/e-puck2_1_J/Eclipse_e-puck2/eclipse/.eclipseextension' type='org.eclipse.equinox.p2.artifact.repository.simpleRepository' version='1.0.0'>
   <properties size='3'>
-    <property name='p2.timestamp' value='1666793647538'/>
+    <property name='p2.timestamp' value='1666876912786'/>
     <property name='org.eclipse.update.site.policy' value='USER-EXCLUDE'/>
     <property name='org.eclipse.update.site.list' value=''/>
   </properties>
