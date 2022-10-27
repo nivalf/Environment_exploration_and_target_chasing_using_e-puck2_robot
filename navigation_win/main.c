@@ -21,6 +21,7 @@
 #include "behaviors.h"
 #include "sensors/imu.h"
 #include "epuck1x/utility/utility.h"
+#include "selector.h"
 
 // Define inter process communication bus
 messagebus_t bus;
@@ -38,6 +39,7 @@ void turn_left(void);
 void turn(void);
 void send_feedback_data(void);
 int get_turn_direction(void);
+int target_in_range(void);
 
 struct prox
 {
@@ -108,6 +110,31 @@ int main(void)
 				break;
         }
 
+//        switch(get_selector()) {
+//        	case 0:
+//        		// EXPLORATION MODE
+//                break;
+//			default:
+//				// TARGET CHASE MODE
+//                switch(bot_state) {
+//                	// moving forward mode
+//        			case 0:
+////        				move_forward();
+//        				if(target_in_range()) {
+//        					set_target_turn_angle();
+//        					bot_state = 1;
+//        				}
+//        				break;
+//
+//        			// Turn mode
+//        			case 1:
+//        				turn();
+//        				break;
+//                }
+//                break;
+//        }
+
+
     }
 }
 
@@ -120,6 +147,13 @@ void __stack_chk_fail(void)
 }
 
 /*************** Helper Functions *************************/
+
+/*
+ * DEV
+ *
+ * - Add a reset function when selector state changes
+ * -
+ */
 
 // Move the bot forward;
 void move_forward(void) {
@@ -188,12 +222,14 @@ int get_target_prox_sensor_number(void) {
 	qsort(prox_values, 8, sizeof(prox_values[0]), cmp);
 
 	// jump sequence
-	sensor_select_count = (sensor_select_count + 3) % 8;
+	sensor_select_count = (sensor_select_count + 3) % 8;  // >>>>> DEV: For task 2, no jump
 
 	return prox_values[sensor_select_count].sensor_no;
 }
 
-// Compare function for sort
+/* Compare function for sort
+ * Sorts in descending order of sensor values => increasing order of distance
+ */
 int cmp(const void *a, const void *b) {
     struct prox *a1 = (struct prox *)a;
     struct prox *a2 = (struct prox *)b;
@@ -230,6 +266,23 @@ int obstacle_in_proximity(void) {
 	return obstacle_detected;
 }
 
+/******************* TASK 2 ADDITIONAL HELPERS ******************/
+
+/*	1 : target in range
+ *  0 : target not in range
+ */
+int target_in_range(void) {
+	const int thr = 500;	// threshold value
+	int target_detected = 0;
+
+	for(int sensor = 0; sensor < 8; sensor++) {
+		if(get_prox(sensor) < thr) {
+			target_detected = 1;
+		}
+	}
+	return target_detected;
+}
+
 /*************** Feedback **************************/
 
 // Send data to the terminal
@@ -246,7 +299,7 @@ void send_feedback_data(void) {
 
 	// Gyro values:
 	char str[100]; // resulting string of sprintf will be stored here
-	int str_length = sprintf(str, "current angle: %f, target angel: %f \n", current_turn_angle, target_turn_angle);
+	int str_length = sprintf(str, "current angle: %f, target angle: %f \n", current_turn_angle, target_turn_angle);
 	e_send_uart1_char(str, str_length);
 
 }
