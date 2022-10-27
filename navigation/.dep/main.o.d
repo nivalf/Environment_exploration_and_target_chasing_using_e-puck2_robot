@@ -145,7 +145,8 @@ build/obj/main.o: main.c \
  ../e-puck2_main-processor/src/sensors/imu.h \
  ../e-puck2_main-processor/src/sensors/mpu9250.h \
  ../e-puck2_main-processor/src/sensors/mpu9250_registers.h \
- ../e-puck2_main-processor/src/epuck1x/utility/utility.h
+ ../e-puck2_main-processor/src/epuck1x/utility/utility.h \
+ ../e-puck2_main-processor/src/selector.h
 
 /home/uos/Documents/e-puck2_1_J/Eclipse_e-puck2/Tools/gcc-arm-none-eabi-7-2017-q4-major/arm-none-eabi/include/stdio.h:
 
@@ -442,3 +443,5 @@ main.h:
 ../e-puck2_main-processor/src/sensors/mpu9250_registers.h:
 
 ../e-puck2_main-processor/src/epuck1x/utility/utility.h:
+
+../e-puck2_main-processor/src/selector.h:

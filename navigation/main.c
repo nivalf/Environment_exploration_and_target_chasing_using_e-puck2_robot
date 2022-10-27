@@ -21,6 +21,7 @@
 #include "behaviors.h"
 #include "sensors/imu.h"
 #include "epuck1x/utility/utility.h"
+#include "selector.h"
 
 // Define inter process communication bus
 messagebus_t bus;
@@ -28,13 +29,20 @@ MUTEX_DECL(bus_lock);
 CONDVAR_DECL(bus_condvar);
 
 // Function Declarations
-float get_turn_angle(void);
+void set_target_turn_angle(void);
 int cmp(const void *a, const void *b);
-int get_prox_sensor_number(void);
+int get_target_prox_sensor_number(void);
 void move_forward(void);
-int has_obstacle_ahead(void);
+int obstacle_in_proximity(void);
 void turn_right(void);
+void turn_left(void);
 void turn(void);
+void send_feedback_data(void);
+int get_turn_direction(void);
+int target_in_range(void);
+void change_sensor_select_count(void);
+void explore_arena(void);
+void chase_target(void);
 
 struct prox
 {
@@ -45,14 +53,23 @@ struct prox
 int sensor_select_count = 0;
 int bot_state = 0; 	// 0: moving fwd, 1: turning
 
-float target_turn_angle = 0;
-float current_turn_angle_rad = 0;
+/* Angle for turning
+ *  +ve : turn right
+ *  -ve : turn left
+ */
+float target_turn_angle = 0.0;
+float current_turn_angle = 0.0;
+
+// Speed
+const int turn_speed = 200;
+const int move_speed = 800;
 
 int main(void)
 {
     halInit();
     chSysInit();
     mpu_init();
+
     motors_init();
 
 	// Initiate inter-process communication bus
@@ -75,53 +92,21 @@ int main(void)
 
     /* Infinite loop. */
     while (1) {
-    	// waits 1 second
-        chThdSleepMilliseconds(1000);
-
-        // **************** Read Proximity values ****************** //
-
-//        // get values from the 8 IR sensors. (0-7)
-//        int prox_readings[8];
-//        int calibrated_prox_readings[8];
-//        int ambient_light[8];
-//
-//        // convert this to a separate fn. Use array pointer to pass on the value.
-//        // Test in playground before implementing.
-//        for(int sensor = 0; sensor < 8; sensor ++ ) {
-//        	prox_readings[sensor] = get_prox(sensor);
-//        	calibrated_prox_readings[sensor] = get_calibrated_prox(sensor);
-//        	ambient_light[sensor] = get_ambient_light(sensor);
-//        }
-//
-//        // **************** Stream Proximity values to the terminal ****************** //
-//
-//        // Print the IR values to terminal
-//        for(int sensor = 0; sensor < 8; sensor ++ ) {
-//        	char str[100]; // resulting string of sprintf will be stored here
-//        	char split = (sensor == 7) ? '\n' : '|';
-//        	int str_length = sprintf(str, " %d, %d, %d %c", prox_readings[sensor], calibrated_prox_readings[sensor], ambient_light[sensor], split);
-//        	e_send_uart1_char(str, str_length);
-//        }
-
-        // *********************** ***************************//
+    	// waits
+        chThdSleepMilliseconds(100);
+        // Send feedback data to the serial monitor
+//        send_feedback_data();
 
 
-        switch(bot_state) {
-        	// moving forward
-			case 0:
-				move_forward();
-				if(has_obstacle_ahead()) {
-					current_turn_angle_rad = 0;
-					target_turn_angle = get_turn_angle();
-					bot_state = 1;
-				}
-				break;
-
-			case 1:
-				turn();
-				break;
+        switch(get_selector()) {
+        	case 0:
+        		// EXPLORATION MODE
+        		explore_arena();
+                break;
+			default:
+				// TARGET CHASE MODE
+				chase_target();
         }
-
     }
 }
 
@@ -133,70 +118,159 @@ void __stack_chk_fail(void)
     chSysHalt("Stack smashing detected");
 }
 
+/*************** MAIN FUNCTIONS ***************************/
+
+// TASK 1: Explore the arena while avoiding collision
+void explore_arena(void) {
+    switch(bot_state) {
+    	// moving forward mode
+		case 0:
+			move_forward();
+			if(obstacle_in_proximity()) {
+				set_target_turn_angle();
+				change_sensor_select_count();
+				bot_state = 1;
+			}
+			break;
+
+		// Turn mode
+		case 1:
+			turn();
+			break;
+    }
+}
+
+// TASK 2: Chase a target
+void chase_target(void) {
+    switch(bot_state) {
+    	// moving forward mode
+		case 0:
+//        				move_forward();
+			if(target_in_range()) {
+				sensor_select_count = 0; // to select the closest one. Change to proper location
+				set_target_turn_angle();
+				bot_state = 1;
+			}
+			break;
+
+		// Turn mode
+		case 1:
+			turn();
+			break;
+    }
+}
+
 /*************** Helper Functions *************************/
 
-void turn(void) {
-//	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
-	current_turn_angle_rad += -1 * get_gyro_rate(2)*getDiffTimeMsAndReset()*0.001;
+/*
+ * DEV
+ *
+ * - Add a reset function when selector state changes
+ * -
+ */
 
-	if(current_turn_angle_rad >= target_turn_angle) {
+// Move the bot forward;
+void move_forward(void) {
+	right_motor_set_speed(move_speed);
+	left_motor_set_speed(move_speed);
+}
+
+/**************** Turn ******************/
+
+void turn(void) {
+	int turn_direction = get_turn_direction();
+
+//	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
+	current_turn_angle += turn_direction * get_gyro_rate(2) * getDiffTimeMsAndReset() * 0.001;
+
+	char str[100]; // resulting string of sprintf will be stored here
+	int str_length = sprintf(str, "turn_direction: %d,current_turn_angle: %f, gyro_rate: %f, cacl value: %f \n", turn_direction,current_turn_angle, get_gyro_rate(2), turn_direction * get_gyro_rate(2) * getDiffTimeMsAndReset() * 0.001);
+	e_send_uart1_char(str, str_length);
+
+	if(abs(current_turn_angle) >= abs(target_turn_angle)) {
 		// reset
-		target_turn_angle = 0;
-		current_turn_angle_rad = 0;
+		target_turn_angle = 0.0;
+		current_turn_angle = 0.0;
 		// set to move forward
 		bot_state = 0;
-	} else {
+	} else if (turn_direction == 1) {
 		turn_right();
+	} else if (turn_direction == -1) {
+		turn_left();
 	}
 }
 
 // turn the bot clockwise
 void turn_right(void) {
-	const int speed = 200;
-	right_motor_set_speed(-1 * speed);
-	left_motor_set_speed(speed);
+	right_motor_set_speed(-1 * turn_speed);
+	left_motor_set_speed(turn_speed);
 }
 
-// Move the bot forward;
-void move_forward(void) {
-	const int speed = 1000;
-
-	right_motor_set_speed(speed);
-	left_motor_set_speed(speed);
+// turn the bot counter clockwise
+void turn_left(void) {
+	right_motor_set_speed(turn_speed);
+	left_motor_set_speed(-1 * turn_speed);
 }
 
-// 1 if obstacle ahead else 0
-int has_obstacle_ahead(void) {
-	const int prox_thr = 350;
-	return get_calibrated_prox(0) < prox_thr || get_calibrated_prox(7) < prox_thr ? 1 : 0;
-}
+/* Set the target angle in radians to turn for next movement
+		 Position of the robot sensors:
+				forward
 
-/* Get the angle in radians to turn for next movement*/
-float get_turn_angle(void) {
-	int chosen_prox_sensor = get_prox_sensor_number();
-	float turn_angle = ((M_PI/4) * chosen_prox_sensor) - M_PI/8;
-	return turn_angle;
+		-M_PI/8			  7	  0 (15 deg) 		M_PI/8
+		-M_PI/4			6		1 (45 deg) 		M_PI/4
+		-M_PI/2		  5	    	  2 (90 deg) 	M_PI/2
+		-5*M_PI/4		 4	   3 (150 deg) 		5*M_PI/4
+*/
+void set_target_turn_angle(void) {
+	int sensor_angle_arr[8] = { M_PI/8.0, M_PI/4.0, M_PI/2.0, 5.0*M_PI/4.0, (-1.0)*M_PI/8.0, (-1.0)*M_PI/4.0, (-1.0)*M_PI/2.0, (-5.0)*M_PI/4.0 };
+	int target_sensor = get_target_prox_sensor_number();
+	target_turn_angle = sensor_angle_arr[target_sensor];
+
+	char str[100]; // resulting string of sprintf will be stored here
+	int str_length = sprintf(str, "target_sensor: %d, target_turn_angle: %f, sample_angle_value: %f \n", target_sensor, target_turn_angle, sensor_angle_arr[0]);
+	e_send_uart1_char(str, str_length);
 }
 
 /* Get the proximity sensor number of next direction */
-int get_prox_sensor_number(void) {
-	struct prox calibrated_prox_values[8];
-	    for (int sensor = 0; sensor < 8; sensor++)
+int get_target_prox_sensor_number(void) {
+	struct prox prox_values[8];
+	//int prox prox_values[8];
+
+	for (int sensor = 0; sensor < 8; sensor++)
 	    {
-	    	calibrated_prox_values[sensor].value = get_calibrated_prox(sensor);
-	    	calibrated_prox_values[sensor].sensor_no = sensor;
+	    	prox_values[sensor].value = get_prox(sensor);
+	    	prox_values[sensor].sensor_no = sensor;
 	    }
 
 	//sort
-	qsort(calibrated_prox_values, 8, sizeof(calibrated_prox_values[0]), cmp);
+	for (int i=0; i<8; i++)
+		for (int j=i+1; j<8; j++)
+		{
+			if (prox_values[i].value < prox_values[j].value) {
+				int tmp_v = prox_values[i].value;
+				prox_values[i].value = prox_values[j].value;
+				prox_values[j].value = tmp_v;
+				int tmp_n = prox_values[i].sensor_no;
+				prox_values[i].sensor_no = prox_values[j].sensor_no;
+				prox_values[j].sensor_no = tmp_n;
+			}
+		}
 
-	// jump sequence
-	sensor_select_count = (sensor_select_count + 3) % 8;
+	//qsort(prox_values, 8, sizeof(prox_values[0]), cmp2);
 
-	return calibrated_prox_values[sensor_select_count].sensor_no;
+
+	return prox_values[sensor_select_count].sensor_no;
 }
 
-// Compare function for sort
+
+// jump sequence
+void change_sensor_select_count(void) {
+	sensor_select_count = (sensor_select_count + 3) % 8;
+}
+
+/* Compare function for sort
+ * Sorts in descending order of sensor values => increasing order of distance
+ */
 int cmp(const void *a, const void *b) {
     struct prox *a1 = (struct prox *)a;
     struct prox *a2 = (struct prox *)b;
@@ -206,4 +280,78 @@ int cmp(const void *a, const void *b) {
         return 1;
     else
         return 0;
+}
+
+int cmp2(const int* a, const int* b) {
+    struct prox *a1 = (struct prox *)a;
+    struct prox *a2 = (struct prox *)b;
+    if ((*a1).value > (*a2).value)
+        return -1;
+    else if ((*a1).value < (*a2).value)
+        return 1;
+    else
+        return 0;
+}
+
+/* Direction of turn.
+ * 		1 : clockwise (right)
+ * 		-1 : counterclockwise (left)
+ */
+int get_turn_direction() {
+	return target_turn_angle < 0 ? -1.0 : 1.0;
+}
+
+/*********** Obstacle Detection *********************/
+
+/*	1 : obstacle in proximity
+ *  0 : no obstacle in proximity
+ */
+int obstacle_in_proximity(void) {
+	const int thr = 500;	// threshold value
+	int obstacle_detected = 0;
+
+	for(int sensor = 0; sensor < 8; sensor++) {
+		if(get_prox(sensor) > thr) {
+			obstacle_detected = 1;
+		}
+	}
+	return obstacle_detected;
+}
+
+/******************* TASK 2 ADDITIONAL HELPERS ******************/
+
+/*	1 : target in range
+ *  0 : target not in range
+ */
+int target_in_range(void) {
+	const int thr = 500;	// threshold value
+	int target_detected = 0;
+
+	for(int sensor = 0; sensor < 8; sensor++) {
+		if(get_prox(sensor) < thr) {
+			target_detected = 1;
+		}
+	}
+	return target_detected;
+}
+
+/*************** Feedback **************************/
+
+// Send data to the terminal
+void send_feedback_data(void) {
+
+	// Prox sensor values:
+	for(int sensor = 0; sensor < 8; sensor ++ ) {
+		int prox_value = get_prox(sensor);
+		char str[100]; // resulting string of sprintf will be stored here
+		char split = (sensor == 7) ? '\n' : '|';
+		int str_length = sprintf(str, " s%d: %d %c", sensor, prox_value, split);
+		e_send_uart1_char(str, str_length);
+	}
+
+	// Gyro values:
+	char str[100]; // resulting string of sprintf will be stored here
+	int str_length = sprintf(str, "current angle: %f, target angle: %f \n", current_turn_angle, target_turn_angle);
+	e_send_uart1_char(str, str_length);
+
 }
