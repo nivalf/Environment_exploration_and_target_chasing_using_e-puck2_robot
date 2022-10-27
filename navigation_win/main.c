@@ -34,7 +34,9 @@ int get_target_prox_sensor_number(void);
 void move_forward(void);
 int has_obstacle_ahead(void);
 void turn_right(void);
+void turn_left(void);
 void turn(void);
+void send_feedback_data(void);
 
 struct prox
 {
@@ -45,8 +47,8 @@ struct prox
 int sensor_select_count = 0;
 int bot_state = 0; 	// 0: moving fwd, 1: turning
 
-float target_turn_angle = 0;
-float current_turn_angle_rad = 0;
+float target_turn_angle = 0.0;
+float current_turn_angle = 0.0;
 const int turn_speed = 400;
 const int move_speed = 1000;
 
@@ -80,33 +82,8 @@ int main(void)
     	// waits
         chThdSleepMilliseconds(100);
 
-        // **************** Read Proximity values ****************** //
-
-//        // get values from the 8 IR sensors. (0-7)
-//        int prox_readings[8];
-//        int calibrated_prox_readings[8];
-//        int ambient_light[8];
-//
-//        // convert this to a separate fn. Use array pointer to pass on the value.
-//        // Test in playground before implementing.
-//        for(int sensor = 0; sensor < 8; sensor ++ ) {
-//        	prox_readings[sensor] = get_prox(sensor);
-//        	calibrated_prox_readings[sensor] = get_calibrated_prox(sensor);
-//        	ambient_light[sensor] = get_ambient_light(sensor);
-//        }
-//
-//        // **************** Stream Proximity values to the terminal ****************** //
-//
-//        // Print the IR values to terminal
-//        for(int sensor = 0; sensor < 8; sensor ++ ) {
-//        	char str[100]; // resulting string of sprintf will be stored here
-//        	char split = (sensor == 7) ? '\n' : '|';
-//        	int str_length = sprintf(str, " %d, %d, %d %c", prox_readings[sensor], calibrated_prox_readings[sensor], ambient_light[sensor], split);
-//        	e_send_uart1_char(str, str_length);
-//        }
-
-        // *********************** ***************************//
-
+        // Send feedback data to the serial monitor
+        send_feedback_data();
 
         switch(bot_state) {
         	// moving forward
@@ -138,12 +115,12 @@ void __stack_chk_fail(void)
 
 void turn_gyro(void) {
 //	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
-	current_turn_angle_rad += -1 * get_gyro_rate(2)*getDiffTimeMsAndReset()*0.001;
+	current_turn_angle += -1 * get_gyro_rate(2)*getDiffTimeMsAndReset()*0.001;
 
-	if(current_turn_angle_rad >= target_turn_angle) {
+	if(current_turn_angle >= target_turn_angle) {
 		// reset
-		target_turn_angle = 0;
-		current_turn_angle_rad = 0;
+		target_turn_angle = 0.0;
+		current_turn_angle = 0.0;
 		// set to move forward
 		bot_state = 0;
 	} else {
@@ -183,20 +160,20 @@ void set_target_turn_angle(void) {
 
 /* Get the proximity sensor number of next direction */
 int get_target_prox_sensor_number(void) {
-	struct prox calibrated_prox_values[8];
+	struct prox prox_values[8];
 	    for (int sensor = 0; sensor < 8; sensor++)
 	    {
-	    	calibrated_prox_values[sensor].value = get_calibrated_prox(sensor);
-	    	calibrated_prox_values[sensor].sensor_no = sensor;
+	    	prox_values[sensor].value = get_prox(sensor);
+	    	prox_values[sensor].sensor_no = sensor;
 	    }
 
 	//sort
-	qsort(calibrated_prox_values, 8, sizeof(calibrated_prox_values[0]), cmp);
+	qsort(prox_values, 8, sizeof(prox_values[0]), cmp);
 
 	// jump sequence
 	sensor_select_count = (sensor_select_count + 3) % 8;
 
-	return calibrated_prox_values[sensor_select_count].sensor_no;
+	return prox_values[sensor_select_count].sensor_no;
 }
 
 // Compare function for sort
@@ -211,3 +188,21 @@ int cmp(const void *a, const void *b) {
         return 0;
 }
 
+// Send data to the terminal
+void send_feedback_data(void) {
+
+	// Prox sensor values:
+	for(int sensor = 0; sensor < 8; sensor ++ ) {
+		int prox_value = get_prox(sensor);
+		char str[100]; // resulting string of sprintf will be stored here
+		char split = (sensor == 7) ? '\n' : '|';
+		int str_length = sprintf(str, " s%d: %d %c", sensor, prox_value, split);
+		e_send_uart1_char(str, str_length);
+	}
+
+	// Gyro values:
+	char str[100]; // resulting string of sprintf will be stored here
+	int str_length = sprintf(str, "current angle: %f, target angel: %f \n", current_turn_angle, target_turn_angle);
+	e_send_uart1_char(str, str_length);
+
+}
