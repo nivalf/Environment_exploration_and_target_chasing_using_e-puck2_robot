@@ -1,4 +1,4 @@
-/* Explore Arena v1.0.0
+/* Explore Arena v1.1.0
  *
  * Authors:
  * Flavin Lee John
@@ -11,15 +11,17 @@
  * > If obstacle Detected, turn right
  * > If obstacle clear, move forward
  *
+ * Enhancements:
+ *
+ * 1. Fixed Bot vibration issue
+ * Threshold IR value for path clear check is kept lower than
+ * the threshold value for obstacle detection which enables the
+ * bot to turn further so that it won't be travelling along the
+ * threshold border line.
+ *
  * Possible Issues:
  *
- * 1. Bot might vibrate
- * The threshold IR value to determine obstacle ahead and path clear is the same.
- * Thus the bot frequently switches b/w the two states causing vibration.
- *
- * Sol: Keep the threshold IR value to stop turning lower than the one to stop moving forward.
- *
- * 2. Incomplete exploration
+ * 1. Incomplete exploration
  * Bot only turns to right which will result in incomplete exploration
  *
  * Sol: Identify which side is more open by comparing sensor values and move there.
@@ -52,9 +54,12 @@ CONDVAR_DECL(bus_condvar);
 // Function Declarations
 void move_forward(void);
 int obstacle_ahead(void);
+int path_is_clear(void);
 void turn_right(void);
 void should_stop_move_forward(void);
 void should_stop_turn(void);
+
+/******* Global Variables ********/
 
 /* Bot State:
  * 0: move forward mode
@@ -62,8 +67,13 @@ void should_stop_turn(void);
 int bot_state = 0;
 
 // Speed
-const int turn_speed = 200;
-const int move_speed = 800;
+const int TURN_SPEED = 200;
+const int MOVE_SPEED = 800;
+
+// Obstacle threshold value : IR reading above this val => obstacle nearby
+const int OBS_THR = 500;
+
+/******* ***** ********** ********/
 
 int main(void)
 {
@@ -121,8 +131,8 @@ void __stack_chk_fail(void)
 
 // Move the bot forward;
 void move_forward(void) {
-	right_motor_set_speed(move_speed);
-	left_motor_set_speed(move_speed);
+	right_motor_set_speed(MOVE_SPEED);
+	left_motor_set_speed(MOVE_SPEED);
 }
 
 /* Switch bot state to turning mode if obstacle ahead*/
@@ -141,13 +151,14 @@ void should_stop_move_forward(void) {
 
 // turn the bot clockwise
 void turn_right(void) {
-	right_motor_set_speed(-1 * turn_speed);
-	left_motor_set_speed(turn_speed);
+	right_motor_set_speed(-1 * TURN_SPEED);
+	left_motor_set_speed(TURN_SPEED);
 }
 
-/* Switch bot state to move forward mode if no obstacle ahead */
+/* If path is clear, set bot_state = 0
+ * i.e stop turning & start moving forward */
 void should_stop_turn(void) {
-	if(!obstacle_ahead()) {
+	if(path_is_clear()) {
 		bot_state = 0;
 
 		// DEV feedback
@@ -159,18 +170,18 @@ void should_stop_turn(void) {
 
 /*********** Obstacle Detection *********************/
 
-/*	1 : obstacle ahead
+/* return:
+ *  1 : obstacle ahead
  *  0 : no obstacle ahead
  */
 int obstacle_ahead(void) {
-	const int THR = 500;	// threshold value
 	int obstacle_detected = 0;
 
 	// The 4 front sensors
 	int sensors[4] = {0, 1, 6, 7};
 
 	for(int i=0; i<4; i++) {
-		if(get_prox(sensors[i]) > THR) {
+		if(get_prox(sensors[i]) > OBS_THR) {
 			obstacle_detected = 1;
 		}
 
@@ -183,3 +194,37 @@ int obstacle_ahead(void) {
 
 	return obstacle_detected;
 }
+
+
+/* Check if the path ahead is clear. The threshold value is set
+ * lower than the threshold value of obstacle_ahead function so
+ * that the bot turns further towards the free space. This is to
+ * avoid vibration of the bot while travelling along the THR border.
+ *
+ * return:
+ * 	1 : path clear
+ *  0 : path not clear
+ */
+int path_is_clear(void) {
+	int path_clear = 0;
+
+	// The 4 front sensors
+	int sensors[4] = {0, 1, 6, 7};
+
+	for(int i=0; i<4; i++) {
+		// Compared to 70% of Obstacle Threshold value
+		if(get_prox(sensors[i]) < (0.7 * OBS_THR)) {
+			path_clear = 1;
+		}
+
+		// DEV feedback
+		char str[100];
+		char split = (i == 4) ? '\n' : '|';
+		int str_length = sprintf(str, " s%d: %d (%d) %c", sensors[i], get_prox(i), get_calibrated_prox(i), split);
+		e_send_uart1_char(str, str_length);
+	}
+
+	return path_clear;
+}
+
+/************** THE END ;D ******************/
