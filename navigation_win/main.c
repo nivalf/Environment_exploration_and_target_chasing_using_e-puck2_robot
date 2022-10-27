@@ -61,14 +61,15 @@ float target_turn_angle = 0.0;
 float current_turn_angle = 0.0;
 
 // Speed
-const int turn_speed = 400;
-const int move_speed = 1000;
+const int turn_speed = 200;
+const int move_speed = 800;
 
 int main(void)
 {
     halInit();
     chSysInit();
     mpu_init();
+
     motors_init();
 
 	// Initiate inter-process communication bus
@@ -93,9 +94,9 @@ int main(void)
     while (1) {
     	// waits
         chThdSleepMilliseconds(100);
-
         // Send feedback data to the serial monitor
-        send_feedback_data();
+//        send_feedback_data();
+
 
         switch(get_selector()) {
         	case 0:
@@ -182,6 +183,10 @@ void turn(void) {
 //	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
 	current_turn_angle += turn_direction * get_gyro_rate(2) * getDiffTimeMsAndReset() * 0.001;
 
+	char str[100]; // resulting string of sprintf will be stored here
+	int str_length = sprintf(str, "turn_direction: %d,current_turn_angle: %f, gyro_rate: %f, cacl value: %f \n", turn_direction,current_turn_angle, get_gyro_rate(2), turn_direction * get_gyro_rate(2) * getDiffTimeMsAndReset() * 0.001);
+	e_send_uart1_char(str, str_length);
+
 	if(abs(current_turn_angle) >= abs(target_turn_angle)) {
 		// reset
 		target_turn_angle = 0.0;
@@ -217,22 +222,41 @@ void turn_left(void) {
 		-5*M_PI/4		 4	   3 (150 deg) 		5*M_PI/4
 */
 void set_target_turn_angle(void) {
-	int sensor_angle_arr[8] = { M_PI/8, M_PI/4, M_PI/2, 5*M_PI/4, (-1)*M_PI/8, (-1)*M_PI/4, (-1)*M_PI/2, (-5)*M_PI/4 };
+	int sensor_angle_arr[8] = { M_PI/8.0, M_PI/4.0, M_PI/2.0, 5.0*M_PI/4.0, (-1.0)*M_PI/8.0, (-1.0)*M_PI/4.0, (-1.0)*M_PI/2.0, (-5.0)*M_PI/4.0 };
 	int target_sensor = get_target_prox_sensor_number();
 	target_turn_angle = sensor_angle_arr[target_sensor];
+
+	char str[100]; // resulting string of sprintf will be stored here
+	int str_length = sprintf(str, "target_sensor: %d, target_turn_angle: %f, sample_angle_value: %f \n", target_sensor, target_turn_angle, sensor_angle_arr[0]);
+	e_send_uart1_char(str, str_length);
 }
 
 /* Get the proximity sensor number of next direction */
 int get_target_prox_sensor_number(void) {
 	struct prox prox_values[8];
-	    for (int sensor = 0; sensor < 8; sensor++)
+	//int prox prox_values[8];
+
+	for (int sensor = 0; sensor < 8; sensor++)
 	    {
 	    	prox_values[sensor].value = get_prox(sensor);
 	    	prox_values[sensor].sensor_no = sensor;
 	    }
 
 	//sort
-	qsort(prox_values, 8, sizeof(prox_values[0]), cmp);
+	for (int i=0; i<8; i++)
+		for (int j=i+1; j<8; j++)
+		{
+			if (prox_values[i].value < prox_values[j].value) {
+				int tmp_v = prox_values[i].value;
+				prox_values[i].value = prox_values[j].value;
+				prox_values[j].value = tmp_v;
+				int tmp_n = prox_values[i].sensor_no;
+				prox_values[i].sensor_no = prox_values[j].sensor_no;
+				prox_values[j].sensor_no = tmp_n;
+			}
+		}
+
+	//qsort(prox_values, 8, sizeof(prox_values[0]), cmp2);
 
 
 	return prox_values[sensor_select_count].sensor_no;
@@ -258,12 +282,23 @@ int cmp(const void *a, const void *b) {
         return 0;
 }
 
+int cmp2(const int* a, const int* b) {
+    struct prox *a1 = (struct prox *)a;
+    struct prox *a2 = (struct prox *)b;
+    if ((*a1).value > (*a2).value)
+        return -1;
+    else if ((*a1).value < (*a2).value)
+        return 1;
+    else
+        return 0;
+}
+
 /* Direction of turn.
  * 		1 : clockwise (right)
  * 		-1 : counterclockwise (left)
  */
 int get_turn_direction() {
-	return target_turn_angle < 0 ? -1 : 1;
+	return target_turn_angle < 0 ? -1.0 : 1.0;
 }
 
 /*********** Obstacle Detection *********************/
