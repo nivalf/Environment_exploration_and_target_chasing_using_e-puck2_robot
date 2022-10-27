@@ -32,11 +32,12 @@ void set_target_turn_angle(void);
 int cmp(const void *a, const void *b);
 int get_target_prox_sensor_number(void);
 void move_forward(void);
-int has_obstacle_ahead(void);
+int obstacle_in_proximity(void);
 void turn_right(void);
 void turn_left(void);
 void turn(void);
 void send_feedback_data(void);
+int get_turn_direction(void);
 
 struct prox
 {
@@ -47,8 +48,14 @@ struct prox
 int sensor_select_count = 0;
 int bot_state = 0; 	// 0: moving fwd, 1: turning
 
+/* Angle for turning
+ *  +ve : turn right
+ *  -ve : turn left
+ */
 float target_turn_angle = 0.0;
 float current_turn_angle = 0.0;
+
+// Speed
 const int turn_speed = 400;
 const int move_speed = 1000;
 
@@ -86,15 +93,16 @@ int main(void)
         send_feedback_data();
 
         switch(bot_state) {
-        	// moving forward
+        	// moving forward mode
 			case 0:
 				move_forward();
-				if(has_obstacle_ahead()) {
+				if(obstacle_in_proximity()) {
 					set_target_turn_angle();
 					bot_state = 1;
 				}
 				break;
 
+			// Turn mode
 			case 1:
 				turn();
 				break;
@@ -113,18 +121,30 @@ void __stack_chk_fail(void)
 
 /*************** Helper Functions *************************/
 
-void turn_gyro(void) {
-//	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
-	current_turn_angle += -1 * get_gyro_rate(2)*getDiffTimeMsAndReset()*0.001;
+// Move the bot forward;
+void move_forward(void) {
+	right_motor_set_speed(move_speed);
+	left_motor_set_speed(move_speed);
+}
 
-	if(current_turn_angle >= target_turn_angle) {
+/**************** Turn ******************/
+
+void turn(void) {
+	int turn_direction = get_turn_direction();
+
+//	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
+	current_turn_angle += turn_direction * get_gyro_rate(2) * getDiffTimeMsAndReset() * 0.001;
+
+	if(abs(current_turn_angle) >= abs(target_turn_angle)) {
 		// reset
 		target_turn_angle = 0.0;
 		current_turn_angle = 0.0;
 		// set to move forward
 		bot_state = 0;
-	} else {
+	} else if (turn_direction == 1) {
 		turn_right();
+	} else if (turn_direction == -1) {
+		turn_left();
 	}
 }
 
@@ -140,22 +160,19 @@ void turn_left(void) {
 	left_motor_set_speed(-1 * turn_speed);
 }
 
-// Move the bot forward;
-void move_forward(void) {
-	right_motor_set_speed(move_speed);
-	left_motor_set_speed(move_speed);
-}
+/* Set the target angle in radians to turn for next movement
+		 Position of the robot sensors:
+				forward
 
-// 1 if obstacle ahead else 0
-int has_obstacle_ahead(void) {
-	const int thr = 1000;	// threshold value
-	return get_prox(0) > thr || get_prox(1) > thr || get_prox(2) > thr || get_prox(3) > thr || get_prox(4) > thr || get_prox(5) > thr || get_prox(6) > thr || get_prox(7) > thr ? 1 : 0;
-}
-
-/* Set the target angle in radians to turn for next movement*/
+		-M_PI/8			  7	  0 (15 deg) 		M_PI/8
+		-M_PI/4			6		1 (45 deg) 		M_PI/4
+		-M_PI/2		  5	    	  2 (90 deg) 	M_PI/2
+		-5*M_PI/4		 4	   3 (150 deg) 		5*M_PI/4
+*/
 void set_target_turn_angle(void) {
-	int target_prox_sensor = get_target_prox_sensor_number();
-	target_turn_angle = ((M_PI/4) * (target_prox_sensor + 1)) - M_PI/8;
+	int sensor_angle_arr[8] = { M_PI/8, M_PI/4, M_PI/2, 5*M_PI/4, (-1)*M_PI/8, (-1)*M_PI/4, (-1)*M_PI/2, (-5)*M_PI/4 };
+	int target_sensor = get_target_prox_sensor_number();
+	target_turn_angle = sensor_angle_arr[target_sensor];
 }
 
 /* Get the proximity sensor number of next direction */
@@ -187,6 +204,33 @@ int cmp(const void *a, const void *b) {
     else
         return 0;
 }
+
+/* Direction of turn.
+ * 		1 : clockwise (right)
+ * 		-1 : counterclockwise (left)
+ */
+int get_turn_direction() {
+	return target_turn_angle < 0 ? -1 : 1;
+}
+
+/*********** Obstacle Detection *********************/
+
+/*	1 : obstacle in proximity
+ *  0 : no obstacle in proximity
+ */
+int obstacle_in_proximity(void) {
+	const int thr = 500;	// threshold value
+	int obstacle_detected = 0;
+
+	for(int sensor = 0; sensor < 8; sensor++) {
+		if(get_prox(sensor) > thr) {
+			obstacle_detected = 1;
+		}
+	}
+	return obstacle_detected;
+}
+
+/*************** Feedback **************************/
 
 // Send data to the terminal
 void send_feedback_data(void) {
