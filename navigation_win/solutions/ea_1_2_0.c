@@ -2,7 +2,7 @@
  *
  * Authors:
  * Flavin Lee John
- * Ankur Gulia
+ * Ankur Singh Gulia
  *
  * Date: 27 Oct 2022
  *
@@ -14,7 +14,7 @@
  * Enhancements:
  *
  * 1. Turn Both Sides
- * Turn to both sides by toggling
+ * Turn to both sides alternatively
  *
  */
 

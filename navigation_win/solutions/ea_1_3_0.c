@@ -1,4 +1,4 @@
-/* Explore Arena v1.1.0
+/* Explore Arena v1.3.0
  *
  * Authors:
  * Flavin Lee John
@@ -8,23 +8,14 @@
  *
  * Algorithm:
  * > Move forward
- * > If obstacle Detected, turn right
+ * > If obstacle Detected, turn
  * > If obstacle clear, move forward
  *
  * Enhancements:
  *
- * 1. Fixed Bot vibration issue
- * Threshold IR value for path clear check is kept lower than
- * the threshold value for obstacle detection which enables the
- * bot to turn further so that it won't be travelling along the
- * threshold border line.
- *
- * Possible Issues:
- *
- * 1. Incomplete exploration
- * Bot only turns to right which will result in incomplete exploration
- *
- * Sol: Identify which side is more open by comparing sensor values and move there.
+ * 1. Turn Both Sides
+ * Compare values of sensors at the edge (1 & 6). Turn towards
+ * the lowest sensor value (Reflection angle)
  *
  */
 
@@ -55,7 +46,10 @@ CONDVAR_DECL(bus_condvar);
 void move_forward(void);
 int obstacle_ahead(void);
 int path_is_clear(void);
+void turn(void);
+void turn_left(void);
 void turn_right(void);
+void set_turn_direction(void);
 void should_stop_move_forward(void);
 void should_stop_turn(void);
 
@@ -73,6 +67,11 @@ const int MOVE_SPEED = 800;
 // Obstacle threshold value : IR reading above this val => obstacle nearby
 const int OBS_THR = 500;
 
+/* Turn Direction
+ * 1 : Turn Right
+ * 0 : Turn Left;
+ */
+int turn_direction = 1;
 /******* ***** ********** ********/
 
 int main(void)
@@ -112,7 +111,7 @@ int main(void)
 
     		// Turn mode
     		case 1:
-    			turn_right();
+    			turn();
     			should_stop_turn();
     			break;
         }
@@ -139,6 +138,7 @@ void move_forward(void) {
 void should_stop_move_forward(void) {
 	if(obstacle_ahead()) {
 		bot_state = 1;
+		set_turn_direction();
 
 		// DEV feedback
 		char str[100]; // resulting string of sprintf will be stored here
@@ -149,10 +149,41 @@ void should_stop_move_forward(void) {
 
 /**************** Turn ******************/
 
+/* Turn the bot */
+void turn(void) {
+	if(turn_direction) {
+		turn_right();
+	} else {
+		turn_left();
+	}
+}
+
 // turn the bot clockwise
 void turn_right(void) {
 	right_motor_set_speed(-1 * TURN_SPEED);
 	left_motor_set_speed(TURN_SPEED);
+}
+
+// turn the bot counter clockwise
+void turn_left(void) {
+	right_motor_set_speed(TURN_SPEED);
+	left_motor_set_speed(-1 * TURN_SPEED);
+}
+
+/* Identify which direction to turn.
+ * 1: Right
+ * 0: Left
+ *
+ * Compare values of sensors at the edge (1 & 6). Turn towards
+ * the lowest sensor value (Reflection angle)
+ */
+void set_turn_direction(void) {
+	turn_direction = get_prox(1) < get_prox(6);
+
+	// DEV feedback
+	char str[100];
+	int str_length = sprintf(str, "s1: %d, s6: %d, turn_direction: %d \n", get_prox(1), get_prox(6), turn_direction);
+	e_send_uart1_char(str, str_length);
 }
 
 /* If path is clear, set bot_state = 0
@@ -199,7 +230,7 @@ int obstacle_ahead(void) {
 /* Check if the path ahead is clear. The threshold value is set
  * lower than the threshold value of obstacle_ahead function so
  * that the bot turns further towards the free space. This is to
- * avoid vibration of the bot while travelling along the THR border.
+ * avoid vibration of the bot while traveling along the THR border.
  *
  * return:
  * 	1 : path clear
