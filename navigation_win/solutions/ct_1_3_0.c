@@ -18,8 +18,8 @@
  *
  * Problems:
  * 1. No exit from standby state
- * => Remain in standby if target is in proximity
- * => Switch to scan mode if target not in proximity or range
+ * => Switch to move forward mode if target moved back
+ * => Switch to scan mode if target not in range
  */
 
 #include <stdio.h>
