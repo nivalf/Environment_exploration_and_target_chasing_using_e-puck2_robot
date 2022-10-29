@@ -12,12 +12,13 @@
  *
  * Known Problems:
  * 1. No exit from move forward state
- * Need to identify if target reached or if target moved & switch to
+ * => Need to identify if target reached or if target moved & switch to
  * corresponding states
  *
- * 2. For scan (s0 > range || s7 > range) is used which will result in the bot
+ * 2.Bot moves at tangent to the target
+ * For scan (s0 > range || s7 > range) is used which will result in the bot
  * moving tangently towards the target
- * Try with (s0 > range && s7 > range)
+ * => Try with (s0 > range && s7 > range)
  *
  */
 
@@ -155,6 +156,7 @@ void should_stop_turn(void) {
  *  0 : target not found
  */
 int target_detected(void) {
+	// Using the two front sensors. s0 & s7.
 	int target_found = (get_prox(0)>RANGE_THR) || (get_prox(7)>RANGE_THR);
 
 	// DEV feedback
