@@ -1,0 +1,236 @@
+/* Chase Target v1.3.0
+ *
+ * Authors:
+ * Flavin Lee John
+ * Ankur Gulia
+ *
+ * Date: 29 Oct 2022
+ *
+ * Algorithm:
+ * > Spin & scan for the obstacle (sensor 0 & 7)
+ * > If target Detected, move forward
+ * > If tracking lost, scan again and start moving
+ * > Else, continue moving & stop on reaching the target
+ *
+ * Fix:
+ * 1. Additional exit from move forward state added
+ * => If lost track of target, move to scan mode
+ *
+ * Problems:
+ * 1. No exit from standby state
+ * => Remain in standby if target is in proximity
+ * => Switch to scan mode if target not in proximity or range
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#include "ch.h"
+#include "hal.h"
+#include "memory_protection.h"
+#include <main.h>
+
+// header files for UART
+#include "epuck1x/uart/e_uart_char.h"
+#include "stdio.h"
+#include "serial_comm.h"
+
+#include "sensors/proximity.h"
+#include "motors.h"
+
+// Define inter process communication bus
+messagebus_t bus;
+MUTEX_DECL(bus_lock);
+CONDVAR_DECL(bus_condvar);
+
+// Function Declarations
+void move_forward(void);
+int target_detected(void);
+int target_reached(void);
+void turn_right(void);
+void should_stop_turn(void);
+void should_stop_move_forward(void);
+int tracking_lost(void);
+
+/******* Global Variables ********/
+
+/* Bot State:
+ * 0: scan mode
+ * 1: move forward mode
+ * 2: standy mode */
+int bot_state = 0;
+
+// Speed
+const int TURN_SPEED = 200;
+const int MOVE_SPEED = 800;
+
+// Target Proximity threshold value : IR reading above this val => don't get closer
+const int TARGET_PROX_THR = 500;
+// Range to detect target
+const int RANGE_THR = 40;
+
+/******* ***** ********** ********/
+
+int main(void)
+{
+    halInit();
+    chSysInit();
+    mpu_init();
+
+    motors_init();
+
+	// Initiate inter-process communication bus
+	messagebus_init(&bus, &bus_lock, &bus_condvar);
+
+    // Start & Calibrate the proximity sensor
+    proximity_start();
+    calibrate_ir();
+
+    // initialize UART1 channel
+    serial_start();
+
+    /* Infinite loop. */
+    while (1) {
+    	// delay in milliseconds. 10Hz
+        chThdSleepMilliseconds(100);
+
+		// DEV feedback
+		char str[100];
+		int str_length = sprintf(str, "bot_state: %d \n", bot_state);
+		e_send_uart1_char(str, str_length);
+
+        switch(bot_state) {
+			// Scan mode
+			case 0:
+				turn_right();
+				should_stop_turn();
+				break;
+
+        	// moving forward mode
+    		case 1:
+    			move_forward();
+    			should_stop_move_forward();
+    			break;
+
+    		// standby mode
+    		case 2:
+    			// do nothing
+    			break;
+        }
+    }
+}
+
+#define STACK_CHK_GUARD 0xe2dee396
+uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
+
+void __stack_chk_fail(void)
+{
+    chSysHalt("Stack smashing detected");
+}
+
+/*************** Helper Functions *************************/
+
+/**************** Turn ******************/
+
+// turn the bot clockwise
+void turn_right(void) {
+	right_motor_set_speed(-1 * TURN_SPEED);
+	left_motor_set_speed(TURN_SPEED);
+}
+
+/* If target detected, set bot_state = 1
+ * i.e stop turning & start moving forward */
+void should_stop_turn(void) {
+	if(target_detected()) {
+		bot_state = 1;
+
+		// DEV feedback
+		char str[100];
+		int str_length = sprintf(str, "Target Detected. Switching to move forward mode. \n");
+		e_send_uart1_char(str, str_length);
+	}
+}
+
+/**************** Move Forward ******************/
+
+// Move the bot forward;
+void move_forward(void) {
+	right_motor_set_speed(MOVE_SPEED);
+	left_motor_set_speed(MOVE_SPEED);
+}
+
+/* Switch bot state:
+ * - to standby mode if target reached
+ * - to scan mode if tracking lost */
+void should_stop_move_forward(void) {
+	if(target_reached()) {
+		bot_state = 2;
+
+		// DEV feedback
+		char str[100]; // resulting string of sprintf will be stored here
+		int str_length = sprintf(str, "Target Reached. Switching to standby mode. \n");
+		e_send_uart1_char(str, str_length);
+	}
+	else if(tracking_lost()) {
+		bot_state = 0;
+
+		// DEV feedback
+		char str[100];
+		int str_length = sprintf(str, "Tracking Lost. Switching to scan mode. \n");
+		e_send_uart1_char(str, str_length);
+	}
+}
+
+/*********** Target Detection *********************/
+
+/* Check if the front sensors have any object in the range
+ *
+ * return:
+ * 	1 : target found
+ *  0 : target not found
+ */
+int target_detected(void) {
+	// Using the two front sensors. s0 & s7.
+	// target found if both s0 & s7 registers object.
+	int target_found = (get_prox(0)>RANGE_THR) && (get_prox(7)>RANGE_THR);
+
+	// DEV feedback
+	char str[100];
+	int str_length = sprintf(str, " s0: %d (%d) | s7: %d (%d)", get_prox(0), get_calibrated_prox(0), get_prox(7), get_calibrated_prox(7));
+	e_send_uart1_char(str, str_length);
+
+	return target_found;
+}
+
+/* Check if bot reached the target
+ *
+ * return:
+ * 	1 : target reached
+ *  0 : target not reached
+ */
+int target_reached(void) {
+	// Using the two front sensors. s0 & s7.
+	// target_reached if either of the sensors register target at proximity
+	int reached_target = (get_prox(0)>TARGET_PROX_THR) || (get_prox(7)>TARGET_PROX_THR);
+
+	// DEV feedback
+	char str[100];
+	int str_length = sprintf(str, " s0: %d (%d) | s7: %d (%d)", get_prox(0), get_calibrated_prox(0), get_prox(7), get_calibrated_prox(7));
+	e_send_uart1_char(str, str_length);
+
+	return reached_target;
+}
+
+/* Check if bot lost track of the target
+ *
+ * return:
+ * 1: tracking lost 		=> target not detected ahead
+ * 0: tracking not lost		=> target detected ahead
+ */
+int tracking_lost(void) {
+	return !target_detected();
+}
+
+/************** THE END ;D ******************/
