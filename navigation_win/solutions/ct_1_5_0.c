@@ -160,6 +160,7 @@ void should_stop_turn(void) {
 
 // Move the bot forward;
 void move_forward(void) {
+	// Add PID
 	right_motor_set_speed(MOVE_SPEED);
 	left_motor_set_speed(MOVE_SPEED);
 }
