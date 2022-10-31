@@ -41,8 +41,6 @@ void send_feedback_data(void);
 int get_turn_direction(void);
 int target_in_range(void);
 void change_sensor_select_count(void);
-void explore_arena(void);
-void chase_target(void);
 
 struct prox
 {
@@ -97,16 +95,22 @@ int main(void)
         // Send feedback data to the serial monitor
 //        send_feedback_data();
 
+        switch(bot_state) {
+			// moving forward mode
+			case 0:
+				move_forward();
+				if(obstacle_in_proximity()) {
+					set_target_turn_angle();
+					change_sensor_select_count();
+					bot_state = 1;
+				}
+				break;
 
-        switch(get_selector()) {
-        	case 0:
-        		// EXPLORATION MODE
-        		explore_arena();
-                break;
-			default:
-				// TARGET CHASE MODE
-				chase_target();
-        }
+			// Turn mode
+			case 1:
+				turn();
+				break;
+		}
     }
 }
 
@@ -118,56 +122,7 @@ void __stack_chk_fail(void)
     chSysHalt("Stack smashing detected");
 }
 
-/*************** MAIN FUNCTIONS ***************************/
-
-// TASK 1: Explore the arena while avoiding collision
-void explore_arena(void) {
-    switch(bot_state) {
-    	// moving forward mode
-		case 0:
-			move_forward();
-			if(obstacle_in_proximity()) {
-				set_target_turn_angle();
-				change_sensor_select_count();
-				bot_state = 1;
-			}
-			break;
-
-		// Turn mode
-		case 1:
-			turn();
-			break;
-    }
-}
-
-// TASK 2: Chase a target
-void chase_target(void) {
-    switch(bot_state) {
-    	// moving forward mode
-		case 0:
-//        				move_forward();
-			if(target_in_range()) {
-				sensor_select_count = 0; // to select the closest one. Change to proper location
-				set_target_turn_angle();
-				bot_state = 1;
-			}
-			break;
-
-		// Turn mode
-		case 1:
-			turn();
-			break;
-    }
-}
-
 /*************** Helper Functions *************************/
-
-/*
- * DEV
- *
- * - Add a reset function when selector state changes
- * -
- */
 
 // Move the bot forward;
 void move_forward(void) {
@@ -180,7 +135,10 @@ void move_forward(void) {
 void turn(void) {
 	int turn_direction = get_turn_direction();
 
-//	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
+	messagebus_topic_t *imu_topic = messagebus_find_topic_blocking(&bus, "/imu");
+	imu_msg_t imu_values;
+
+	messagebus_topic_wait(imu_topic, &imu_values, sizeof(imu_values));
 	current_turn_angle += turn_direction * get_gyro_rate(2) * getDiffTimeMsAndReset() * 0.001;
 
 	char str[100]; // resulting string of sprintf will be stored here
@@ -234,7 +192,6 @@ void set_target_turn_angle(void) {
 /* Get the proximity sensor number of next direction */
 int get_target_prox_sensor_number(void) {
 	struct prox prox_values[8];
-	//int prox prox_values[8];
 
 	for (int sensor = 0; sensor < 8; sensor++)
 	    {
@@ -256,7 +213,7 @@ int get_target_prox_sensor_number(void) {
 			}
 		}
 
-	//qsort(prox_values, 8, sizeof(prox_values[0]), cmp2);
+	//qsort(prox_values, 8, sizeof(prox_values[0]), cmp);
 
 
 	return prox_values[sensor_select_count].sensor_no;
@@ -272,17 +229,6 @@ void change_sensor_select_count(void) {
  * Sorts in descending order of sensor values => increasing order of distance
  */
 int cmp(const void *a, const void *b) {
-    struct prox *a1 = (struct prox *)a;
-    struct prox *a2 = (struct prox *)b;
-    if ((*a1).value > (*a2).value)
-        return -1;
-    else if ((*a1).value < (*a2).value)
-        return 1;
-    else
-        return 0;
-}
-
-int cmp2(const int* a, const int* b) {
     struct prox *a1 = (struct prox *)a;
     struct prox *a2 = (struct prox *)b;
     if ((*a1).value > (*a2).value)
@@ -353,5 +299,4 @@ void send_feedback_data(void) {
 	char str[100]; // resulting string of sprintf will be stored here
 	int str_length = sprintf(str, "current angle: %f, target angle: %f \n", current_turn_angle, target_turn_angle);
 	e_send_uart1_char(str, str_length);
-
 }
