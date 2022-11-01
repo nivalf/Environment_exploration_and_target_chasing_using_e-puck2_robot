@@ -1,4 +1,4 @@
-/* Chase Target v1.7.0
+/* Chase Target v1.8.0
  *
  * Authors:
  * Flavin Lee John
@@ -25,21 +25,7 @@
 		go to standby
  *
  * Fix:
- * 1. Single function for target_in_proximity
- * => functionality based on the bot state. (Comparison change)
- * 2. INNER_PROX_THR & OUTER_PROX_THR global variables added
- * 3. Removed switching to move forward state directly from standby mode
- * => Instead always go to scan mode & then move forward
- * 4. Fix the jerking motion
- * => in target_moved_out_of_proximity, use condition s0 && s7 < outer_prox_thr
- * 		instead of OR condition. > Prevents switching b/w standby & move fwd state
- *
- * Known issues:
  * 1. Bi directional turn
- * => Check which side has higher IR reading & turn that direction
- *
- * 2. Integrate distance sensor for more precision
- *
  *
  */
 
@@ -64,7 +50,7 @@
 /********* CONSTANTS ***********/
 
 // Speed
-#define TURN_SPEED 200
+#define TURN_SPEED 400
 #define MOVE_SPEED 600
 
 // Target Proximity threshold value : IR reading above this val => don't get closer
@@ -87,7 +73,7 @@ void move_forward(void);
 void move_back(void);
 int target_detected(void);
 int target_in_proximity(void);
-void turn_right(void);
+void turn(void);
 void should_stop_turn(void);
 void should_stop_move_forward(void);
 void should_stop_move_back(void);
@@ -96,6 +82,8 @@ void should_stop_standby(void);
 int target_moved_out_of_proximity(void);
 void standby(void);
 int target_too_close(void);
+void set_turn_direction(void);
+void print_state_error(void);
 
 /******* Global Variables ********/
 
@@ -105,6 +93,10 @@ int target_too_close(void);
  * 2: standy mode
  * 3: move back mode*/
 int bot_state = 0;
+
+int scan_state = 0;
+
+int turn_direction = -1;
 
 /******* ***** ********** ********/
 
@@ -139,8 +131,21 @@ int main(void)
         switch(bot_state) {
 			// Scan mode
 			case 0:
-				turn_right();
-				should_stop_turn();
+				switch(scan_state) {
+					case 0:
+						// identify direction
+						set_turn_direction();
+						scan_state = 1;
+						break;
+					case 1:
+						// turn
+						turn();
+						should_stop_turn();
+						break;
+					default:
+						// not supposed to enter here
+						print_state_error();
+				}
 				break;
 
         	// moving forward mode
@@ -160,6 +165,9 @@ int main(void)
 				move_back();
 				should_stop_move_back();
 				break;
+			default:
+				// not supposed to enter here
+				print_state_error();
         }
     }
 }
@@ -176,18 +184,41 @@ void __stack_chk_fail(void)
 
 /**************** Turn ******************/
 
-// turn the bot clockwise
-void turn_right(void) {
-	right_motor_set_speed(-1 * TURN_SPEED);
-	left_motor_set_speed(TURN_SPEED);
+/* If any object detected on right side, set 1. else -1
+ *
+ * 1: clockwise
+ * -1: counter clockwise
+ */
+void set_turn_direction(void) {
+	int direction = -1;
+	for(int i=0; i<4; i++) {
+		if(get_prox(i) > RANGE_THR) {
+			direction = 1;
+		}
+	}
+
+	turn_direction = direction;
+}
+
+/* Turn the bot
+ *
+ * turn direction = 1: turn clockwise
+ * turn direction = -1: turn counter clockwise
+ */
+void turn(void) {
+	right_motor_set_speed((-1) * (turn_direction) * TURN_SPEED);
+	left_motor_set_speed((turn_direction) * TURN_SPEED);
 }
 
 /* Switch bot state from scanning (turning) to:
  * - move forward (1) if target detected
- * i.e stop turning & start moving forward */
+ * i.e stop turning & start moving forward
+ *
+ * + Reset scan_state */
 void should_stop_turn(void) {
 	if(target_detected()) {
 		bot_state = 1;
+		scan_state = 0;	// reset scan state;
 
 		// DEV feedback
 //		char str[100];
@@ -365,4 +396,13 @@ int target_too_close(void) {
 
 	return too_close;
 }
+
+/************** Error *********************/
+void print_state_error(void) {
+	// DEV feedback
+	char str[200];
+	int str_length = sprintf(str, "ERROR: State not identified. Bot state: %d, Scan state: %d \n",bot_state, scan_state);
+	e_send_uart1_char(str, str_length);
+}
+
 /************** THE END ;D ******************/
