@@ -1,10 +1,12 @@
-/* Explore Arena v1.3.0
+
+
+/* Explore Arena v1.4.0
  *
  * Authors:
  * Flavin Lee John
  * Ankur Singh Gulia
  *
- * Date: 27 Oct 2022
+ * Date: 1 Nov 2022
  *
  * Algorithm:
  * > Move forward
@@ -13,9 +15,7 @@
  *
  * Enhancements:
  *
- * 1. Turn Both Sides
- * Compare values of sensors at the edge (1 & 6). Turn towards
- * the lowest sensor value (Reflection angle)
+ * 1. Increase turning speed (Line 72)
  *
  */
 
@@ -61,7 +61,7 @@ void should_stop_turn(void);
 int bot_state = 0;
 
 // Speed
-const int TURN_SPEED = 200;
+const int TURN_SPEED = 500;
 const int MOVE_SPEED = 800;
 
 // Obstacle threshold value : IR reading above this val => obstacle nearby
