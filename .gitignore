@@ -1,1 +1,3 @@
-build/*
+build/
+# Leave the reference folder intact
+e-puck2_main-processor/
