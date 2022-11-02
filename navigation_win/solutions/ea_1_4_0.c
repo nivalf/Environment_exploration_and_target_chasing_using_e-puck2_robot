@@ -94,7 +94,7 @@ int main(void)
 
     /* Infinite loop. */
     while (1) {
-    	// delay in milliseconds. 10Hz
+    	// delay in milliseconds. 20Hz
         chThdSleepMilliseconds(50);
 
 		// DEV feedback
