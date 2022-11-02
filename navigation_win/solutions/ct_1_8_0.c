@@ -288,6 +288,7 @@ void standby(void) {
 
 /* Switch bot state from stand by:
  * - to scan mode if target moved out of proximity
+ * - to move back mode if target too close
  */
 void should_stop_standby(void) {
 	if(target_moved_out_of_proximity()) {

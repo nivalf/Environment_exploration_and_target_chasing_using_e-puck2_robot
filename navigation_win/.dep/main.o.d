@@ -141,13 +141,16 @@ build/obj/main.o: main.c \
  ../e-puck2_main-processor/src/serial_comm.h \
  ../e-puck2_main-processor/src/sensors/proximity.h \
  ../e-puck2_main-processor/src/motors.h \
- ../e-puck2_main-processor/src/leds.h \
- ../e-puck2_main-processor/src/spi_comm.h \
- ../e-puck2_main-processor/src/epuck1x/motor_led/advance_one_timer/e_led.h \
- ../e-puck2_main-processor/src/behaviors.h \
- ../e-puck2_main-processor/src/sensors/imu.h \
- ../e-puck2_main-processor/src/sensors/mpu9250.h \
- ../e-puck2_main-processor/src/sensors/mpu9250_registers.h \
+ ../e-puck2_main-processor/src/sensors/VL53L0X/VL53L0X.h \
+ ../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_api.h \
+ ../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_api_strings.h \
+ ../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_def.h \
+ ../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_device.h \
+ ../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_types.h \
+ d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\platform\inc\vl53l0x_platform.h \
+ d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\core\inc\vl53l0x_def.h \
+ d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\platform\inc\vl53l0x_platform_log.h \
+ d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\platform\inc\vl53l0x_i2c_platform.h \
  ../e-puck2_main-processor/src/epuck1x/utility/utility.h
 
 d:\eclipse_e-puck2\tools\gcc-arm-none-eabi-7-2017-q4-major-win32\arm-none-eabi\include\stdio.h:
@@ -436,18 +439,24 @@ d:\eclipse_e-puck2\tools\gcc-arm-none-eabi-7-2017-q4-major-win32\arm-none-eabi\i
 
 ../e-puck2_main-processor/src/motors.h:
 
-../e-puck2_main-processor/src/leds.h:
+../e-puck2_main-processor/src/sensors/VL53L0X/VL53L0X.h:
 
-../e-puck2_main-processor/src/spi_comm.h:
+../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_api.h:
 
-../e-puck2_main-processor/src/epuck1x/motor_led/advance_one_timer/e_led.h:
+../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_api_strings.h:
 
-../e-puck2_main-processor/src/behaviors.h:
+../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_def.h:
 
-../e-puck2_main-processor/src/sensors/imu.h:
+../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_device.h:
 
-../e-puck2_main-processor/src/sensors/mpu9250.h:
+../e-puck2_main-processor/src/sensors/VL53L0X/Api/core/inc/vl53l0x_types.h:
 
-../e-puck2_main-processor/src/sensors/mpu9250_registers.h:
+d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\platform\inc\vl53l0x_platform.h:
+
+d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\core\inc\vl53l0x_def.h:
+
+d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\platform\inc\vl53l0x_platform_log.h:
+
+d:\e-puck2_1_j\e-puck2_main-processor\src\sensors\vl53l0x\api\platform\inc\vl53l0x_i2c_platform.h:
 
 ../e-puck2_main-processor/src/epuck1x/utility/utility.h:

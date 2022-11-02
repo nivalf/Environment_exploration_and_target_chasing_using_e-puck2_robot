@@ -249,6 +249,9 @@ void turn(void) {
 
 	right_motor_set_speed((-1) * turn_direction * TURN_SPEED);
 	left_motor_set_speed(turn_direction * TURN_SPEED);
+
+	// reset timer
+	getDiffTimeMsAndReset();
 }
 
 /* Get the turn direction
